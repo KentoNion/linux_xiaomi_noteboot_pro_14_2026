@@ -1,0 +1,12 @@
+SPDX-License-Identifier: GPL-2.0-or-later
+
+This project is licensed under the GNU General Public License v2.0 or later.
+
+The patched kernel driver in driver/bitland-mifs-wmi.c is a derivative of
+the in-tree Linux driver drivers/platform/x86/bitland-mifs-wmi.c
+(Copyright (C) 2026 Mingyou Chen), itself GPL-2.0-or-later.
+
+TM2424 thin-ultrabook mappings are based on the WMI protocol documented by
+the XiControl project (https://github.com/Oksion/XiControl, GPL-3.0).
+
+See https://www.gnu.org/licenses/old-licenses/gpl-2.0.html for the full text.
