@@ -45,30 +45,6 @@ is_loaded() {
 	grep -q "^$1 " /proc/modules
 }
 
-# Снапшот omarchy из root-скрипта: omarchy-snapshot внутри зовёт
-# omarchy-version (нужен PATH с ~/.local/share/omarchy/bin) и читает
-# $OMARCHY_PATH/version - под sudo ни того ни другого нет, поэтому
-# явно передаём окружение пользователя, вызвавшего sudo. Сам скрипт
-# может работать от root: его внутренний `sudo snapper` от root
-# беспарольный.
-omarchy_snapshot_create() {
-	local home omdir
-	if [[ -n ${SUDO_USER:-} ]]; then
-		home=$(getent passwd "$SUDO_USER" | cut -d: -f6)
-	else
-		home="$HOME"
-	fi
-	omdir="$home/.local/share/omarchy"
-	if [[ ! -x "$omdir/bin/omarchy-snapshot" ]]; then
-		log "omarchy-snapshot не найден - пропускаю снапшот"
-		return 0
-	fi
-	log "Создаю снапшот omarchy перед вмешательством в систему..."
-	OMARCHY_PATH="$omdir" PATH="$omdir/bin:$PATH" \
-		"$omdir/bin/omarchy-snapshot" create 2>&1 | tee -a "$LOG_FILE" \
-		|| log "Предупреждение: снапшот не создан, продолжаю без него"
-}
-
 main() {
 	require_root
 
