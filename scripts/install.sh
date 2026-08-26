@@ -51,8 +51,6 @@ main() {
 	log "=== Установка патченного bitland-mifs-wmi через DKMS ==="
 	log "Пакет: ${PKG_NAME} v${PKG_VERSION}"
 
-	omarchy_snapshot_create
-
 	if ! command -v dkms >/dev/null 2>&1; then
 		die "dkms не установлен. Arch: pacman -S dkms linux-headers; Debian/Ubuntu: apt install dkms linux-headers-\$(uname -r)"
 	fi

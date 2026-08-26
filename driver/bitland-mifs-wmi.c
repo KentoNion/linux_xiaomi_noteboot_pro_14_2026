@@ -118,7 +118,8 @@ enum bitland_mifs_thin_perf_mode {
 };
 
 enum bitland_mifs_event_id {
-	WMI_EVENT_RESERVED_1		= 1,
+	/* TM2424 FN+F8 projection; value 2 would be "weak charger" (unused here). */
+	WMI_EVENT_PROJECTION		= 0x01,
 	WMI_EVENT_RESERVED_2		= 2,
 	WMI_EVENT_RESERVED_3		= 3,
 	WMI_EVENT_AIRPLANE_MODE		= 4,
@@ -142,10 +143,19 @@ enum bitland_mifs_event_id {
 	WMI_EVENT_FN_5			= 24,
 	WMI_EVENT_REFRESH_RATE		= 25,
 	WMI_EVENT_CPU_FAN_SPEED		= 26,
+	/* TM2424 FN+F9 gear / settings (XiControl KeySettings). */
+	WMI_EVENT_SETTINGS		= 0x1B,
 	WMI_EVENT_GPU_FAN_SPEED		= 32,
+	/*
+	 * Wire value 0x21: Win-key lock on the gaming line; microphone
+	 * mute (HID_EVENT20 / XiControl KeyMic) on TM2424 thin-ultrabook.
+	 */
 	WMI_EVENT_WIN_KEY_LOCK		= 33,
 	WMI_EVENT_RESERVED_23		= 34,
-	WMI_EVENT_OPEN_APP		= 35,
+	WMI_EVENT_OPEN_APP		= 35, /* TM2424 FN+F7 AI down (0x23) */
+	WMI_EVENT_AI_UP			= 0x24,
+	WMI_EVENT_MI_DOWN		= 0x25,
+	WMI_EVENT_MI_UP			= 0x26,
 };
 
 enum bitland_mifs_event_type {
@@ -823,6 +833,44 @@ static const struct key_entry bitland_mifs_wmi_keymap[] = {
 	{ KE_END, 0 }
 };
 
+/*
+ * TM2424 HID_EVENT20 codes (XiControl docs/07-keymap.md / Mifs.cs).
+ * Report standard linux input keys only; userspace decides what they do.
+ * AI/Mi firmware sends a down/up pair - report the down event once so
+ * evdev does not see two clicks.
+ */
+static const struct key_entry bitland_mifs_thin_keymap[] = {
+	{ KE_KEY, WMI_EVENT_PROJECTION, { KEY_SWITCHVIDEOMODE } },
+	{ KE_KEY, WMI_EVENT_SETTINGS, { KEY_CONFIG } },
+	{ KE_KEY, WMI_EVENT_WIN_KEY_LOCK, { KEY_MICMUTE } },
+	{ KE_KEY, WMI_EVENT_OPEN_APP, { KEY_ASSISTANT } },
+	{ KE_IGNORE, WMI_EVENT_AI_UP, { KEY_RESERVED } },
+	{ KE_KEY, WMI_EVENT_MI_DOWN, { KEY_VENDOR } },
+	{ KE_IGNORE, WMI_EVENT_MI_UP, { KEY_RESERVED } },
+	{ KE_KEY, WMI_EVENT_CALCULATOR_START, { KEY_CALC } },
+	{ KE_KEY, WMI_EVENT_BROWSER_START, { KEY_WWW } },
+	{ KE_END, 0 }
+};
+
+static bool bitland_report_mapped_hotkey(struct bitland_mifs_wmi_data *data,
+					 u8 event_id)
+{
+	const struct key_entry *ke;
+
+	if (!data->input_dev)
+		return false;
+
+	ke = sparse_keymap_entry_from_scancode(data->input_dev, event_id);
+	if (!ke)
+		return false;
+	if (ke->type != KE_KEY)
+		return true;
+
+	guard(mutex)(&data->lock);
+	sparse_keymap_report_event(data->input_dev, event_id, 1, true);
+	return true;
+}
+
 static void bitland_notifier_unregister(void *data)
 {
 	struct notifier_block *nb = data;
@@ -895,6 +943,8 @@ static int bitland_mifs_wmi_probe(struct wmi_device *wdev, const void *context)
 		drv_data->input_dev->dev.parent = &wdev->dev;
 
 		ret = sparse_keymap_setup(drv_data->input_dev,
+					  drv_data->thin_ultrabook ?
+					  bitland_mifs_thin_keymap :
 					  bitland_mifs_wmi_keymap, NULL);
 		if (ret)
 			return ret;
@@ -969,6 +1019,15 @@ static void bitland_mifs_wmi_notify(struct wmi_device *wdev,
 	dev_dbg(&wdev->dev,
 		"WMI event: id=0x%02x value_low=0x%02x value_high=0x%02x\n",
 		event->event_id, event->value_low, event->value_high);
+
+	if (data->thin_ultrabook) {
+		/* Projection is value 0; value 2 is a charger warning, skip. */
+		if (event->event_id == WMI_EVENT_PROJECTION &&
+		    event->value_low != 0)
+			return;
+		if (bitland_report_mapped_hotkey(data, event->event_id))
+			return;
+	}
 
 	switch (event->event_id) {
 	case WMI_EVENT_KBD_BRIGHTNESS:

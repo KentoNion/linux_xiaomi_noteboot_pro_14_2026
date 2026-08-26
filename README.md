@@ -22,6 +22,23 @@ DKMS-модуль поверх in-tree драйвера `bitland-mifs-wmi`. Вк
 
 Full-speed без зарядки прошивка отвергает сама. Это не баг драйвера.
 
+Hotkeys TM2424: прошивка шлёт HID_EVENT20, штатный драйвер часть кодов
+глотает. Квирк только сообщает стандартные linux-клавиши через evdev
+(никакого DE-специфичного userspace). Что с ними делать - решает
+окружение или пользовательский бинд.
+
+| Клавиша | WMI | evdev |
+|---|---|---|
+| FN+F4 mic | `0x21` | `KEY_MICMUTE` |
+| FN+F7 AI | `0x23` | `KEY_ASSISTANT` |
+| FN+F8 проекция | `0x01` | `KEY_SWITCHVIDEOMODE` |
+| FN+F9 шестерня | `0x1B` | `KEY_CONFIG` |
+| Mi | `0x25` | `KEY_VENDOR` |
+
+`KEY_MICMUTE` и `KEY_SWITCHVIDEOMODE` обычно уже обрабатывает DE.
+`KEY_CONFIG` / `KEY_ASSISTANT` / `KEY_VENDOR` - ядро их видит; действие
+назначается в настройках клавиатуры, если DE само не знает эти клавиши.
+
 Другие Bitland-машины не затрагиваются: квирк срабатывает только при
 `sys_vendor=XIAOMI` и `board_name=TM2424`.
 
